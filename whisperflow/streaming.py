@@ -20,39 +20,59 @@ async def transcribe(
     queue: Queue,
     transcriber: Callable[[list], str],
     segment_closed: Callable[[dict], None],
+    buffer_duration_seconds: float = 5.0,
 ):
     """the transcription loop"""
-    window, prev_result, cycles = [], {}, 0
+    window = []
+    buffer_start_time = time.time()
+    bytes_per_second = 32000  # 16000 Hz * 2 bytes per sample
 
     while not should_stop[0]:
-        start = time.time()
         await asyncio.sleep(0.01)
         window.extend(get_all(queue))
 
         if not window:
             continue
 
-        result = {
-            "is_partial": True,
-            "data": await transcriber(window),
-            "time": (time.time() - start) * 1000,
-        }
+        # Calculate buffered duration in seconds
+        buffered_bytes = sum(len(chunk) for chunk in window)
+        buffered_duration = buffered_bytes / bytes_per_second
+        elapsed_time = time.time() - buffer_start_time
 
-        if should_close_segment(result, prev_result, cycles):
-            window, prev_result, cycles = [], {}, 0
-            result["is_partial"] = False
-        elif result["data"]["text"] == prev_result.get("data", {}).get("text", ""):
-            cycles += 1
+        # Process when buffer duration reached
+        if buffered_duration >= buffer_duration_seconds:
+            start = time.time()
+            result = {
+                "is_partial": False,
+                "data": await transcriber(window),
+                "time": (time.time() - start) * 1000,
+            }
+
+            if result["data"]["text"]:
+                await segment_closed(result)
+
+            # Reset for next segment
+            window = []
+            buffer_start_time = time.time()
         else:
-            cycles = 0
-            prev_result = result
+            # Send partial results for user feedback
+            start = time.time()
+            result = {
+                "is_partial": True,
+                "data": await transcriber(window),
+                "time": (time.time() - start) * 1000,
+            }
 
-        if result["data"]["text"]:
-            await segment_closed(result)
+            if result["data"]["text"]:
+                await segment_closed(result)
 
 
-def should_close_segment(result: dict, prev_result: dict, cycles, max_cycles=1):
+def should_close_segment(result: dict, prev_result: dict, cycles, buffered_duration=0, buffer_duration_seconds=10.0, max_cycles=1):
     """return if segment should be closed"""
+    # Close if buffer duration has been reached (with 0.5s tolerance for processing)
+    if buffered_duration >= (buffer_duration_seconds - 0.5):
+        return True
+    # Or close if result is stable (same result for max_cycles)
     return cycles >= max_cycles and result["data"]["text"] == prev_result.get(
         "data", {}
     ).get("text", "")
