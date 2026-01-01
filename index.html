@@ -586,7 +586,7 @@
         </button>
 
         <div class="server-info">
-            <p>Connected to: <code>ws://localhost:8181/ws</code></p>
+            <p id="serverUrl">Connected to: <code>ws://localhost:8000/ws</code></p>
             <p style="margin-top: 5px;">Make sure the Whisper Flow server is running!</p>
         </div>
     </div>
@@ -639,7 +639,10 @@
         // Initialize WebSocket connection
         function initWebSocket() {
             try {
-                ws = new WebSocket('ws://localhost:8181/ws');
+                // Dynamically construct WebSocket URL based on current page location
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+                ws = new WebSocket(wsUrl);
 
                 ws.onopen = () => {
                     console.log('WebSocket connected');
@@ -997,6 +1000,11 @@
 
         // Initialize on page load
         window.addEventListener('load', () => {
+            // Update server URL display
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+            document.getElementById('serverUrl').innerHTML = `Connected to: <code>${wsUrl}</code>`;
+
             initWebSocket();
         });
 

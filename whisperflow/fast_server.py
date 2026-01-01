@@ -6,6 +6,9 @@ from typing import List
 from fastapi import FastAPI, WebSocket, Form, File, UploadFile
 from starlette.websockets import WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
 
 from whisperflow import __version__
 import whisperflow.streaming as st
@@ -31,6 +34,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 sessions = {}
+
+
+@app.get("/")
+async def root():
+    """Serve the web UI"""
+    # Get the project root directory (2 levels up from fast_server.py: whisperflow/fast_server.py -> project_root/)
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    index_path = os.path.join(project_root, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path, media_type="text/html")
+    return {"message": "Whisper Flow API"}
 
 
 @app.get("/health", response_model=str)

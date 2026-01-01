@@ -27,7 +27,7 @@ def save_to_notion(
     try:
         client = Client(auth=api_key)
 
-        # Create page in database
+        # Create page in database with ONLY Title property
         response = client.pages.create(
             parent={"database_id": database_id},
             properties={
@@ -39,28 +39,6 @@ def save_to_notion(
                             }
                         }
                     ]
-                },
-                "Transcription": {
-                    "rich_text": [
-                        {
-                            "text": {
-                                "content": transcription_text
-                            }
-                        }
-                    ]
-                },
-                "Duration": {
-                    "number": round(duration_seconds, 2)
-                },
-                "Model": {
-                    "select": {
-                        "name": model
-                    }
-                },
-                "Timestamp": {
-                    "date": {
-                        "start": datetime.now().isoformat()
-                    }
                 },
             },
         )
