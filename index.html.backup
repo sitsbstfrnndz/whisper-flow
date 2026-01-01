@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whisper Flow - Live Transcription</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-record {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-record:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .btn-record:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-stop {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            background: #e53e3e;
+            transform: translateY(-2px);
+        }
+
+        .btn-stop:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-clear {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-clear:hover:not(:disabled) {
+            background: #38a169;
+            transform: translateY(-2px);
+        }
+
+        .status-bar {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .status-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .status-text {
+            font-size: 16px;
+            color: #333;
+        }
+
+        .status-text.connected {
+            color: #48bb78;
+        }
+
+        .status-text.disconnected {
+            color: #f56565;
+        }
+
+        .status-text.recording {
+            color: #667eea;
+        }
+
+        .transcription-box {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            min-height: 150px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .transcription-box:focus-within {
+            border-color: #667eea;
+            background: #fff;
+        }
+
+        #transcription {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #333;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .transcription-box.empty #transcription {
+            color: #a0aec0;
+            font-style: italic;
+        }
+
+        .partial-text {
+            color: #cbd5e1;
+            transition: color 0.3s ease;
+        }
+
+        .final-text {
+            color: #333;
+        }
+
+        .loading-dots {
+            display: inline-block;
+            margin-left: 4px;
+        }
+
+        .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #cbd5e1;
+            margin: 0 3px;
+            animation: wave 1.4s infinite;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes wave {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.6;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            background: #f7fafc;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            color: #333;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .pulsing-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #f56565;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        .server-info {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #a0aec0;
+        }
+
+        .header-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .settings-btn {
+            background: #e2e8f0;
+            color: #667eea;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 8px;
+            font-size: 20px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .settings-btn:hover {
+            background: #cbd5e1;
+            transform: rotate(20deg);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal.show {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: #333;
+            font-size: 20px;
+            margin: 0;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #666;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+            font-family: monospace;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .modal-footer button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-save {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-save:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .btn-cancel {
+            background: #e2e8f0;
+            color: #333;
+        }
+
+        .btn-cancel:hover {
+            background: #cbd5e1;
+        }
+
+        .save-notion-btn {
+            background: #9f7aea;
+            color: white;
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        .save-notion-btn:hover:not(:disabled) {
+            background: #8b5cf6;
+            transform: translateY(-2px);
+        }
+
+        .save-notion-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            animation: slideInRight 0.3s ease;
+            z-index: 2000;
+            max-width: 300px;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success {
+            background: #48bb78;
+        }
+
+        .toast.error {
+            background: #f56565;
+        }
+
+        .toast.loading {
+            background: #4299e1;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            button {
+                min-width: 100px;
+                padding: 10px 16px;
+                font-size: 13px;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+            }
+
+            .toast {
+                bottom: 10px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-controls">
+            <div class="header">
+                <h1>🎙️ Whisper Flow</h1>
+                <p>Real-time Speech-to-Text Transcription</p>
+            </div>
+            <button class="settings-btn" id="settingsBtn" onclick="openSettings()" title="Settings">⚙️</button>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="status-bar">
+            <div class="status-label">Server Status</div>
+            <div class="status-text" id="status">
+                <span class="pulsing-dot"></span>Connecting...
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn-record" id="recordBtn" onclick="startRecording()">
+                🎤 Start Recording
+            </button>
+            <button class="btn-stop" id="stopBtn" onclick="stopRecording()" disabled>
+                ⏹️ Stop Recording
+            </button>
+            <button class="btn-clear" id="clearBtn" onclick="clearTranscription()">
+                🗑️ Clear
+            </button>
+        </div>
+
+        <div class="transcription-box empty">
+            <div id="transcription">Start recording to see live transcription...</div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-label">Audio Duration</div>
+                <div class="stat-value" id="duration">0s</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Chunks Sent</div>
+                <div class="stat-value" id="chunks">0</div>
+            </div>
+        </div>
+
+        <button class="save-notion-btn" id="saveNotionBtn" onclick="saveToNotion()" style="display: none;">
+            💾 Save to Notion
+        </button>
+
+        <div class="server-info">
+            <p id="serverUrl">Connected to: <code>ws://localhost:8000/ws</code></p>
+            <p style="margin-top: 5px;">Make sure the Whisper Flow server is running!</p>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal" onclick="closeSettingsOnBackdrop(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>⚙️ Notion Settings</h2>
+                <button class="close-btn" onclick="closeSettings()">✕</button>
+            </div>
+            <div class="form-group">
+                <label for="notionApiKey">Notion API Key</label>
+                <input type="password" id="notionApiKey" placeholder="secret_..." />
+            </div>
+            <div class="form-group">
+                <label for="notionDatabaseId">Database ID</label>
+                <input type="text" id="notionDatabaseId" placeholder="e.g., abc123def456..." />
+            </div>
+            <div class="modal-footer">
+                <button class="btn-save" onclick="saveSettings()">Save Settings</button>
+                <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioContext;
+        let processor;
+        let microphone;
+        let ws;
+        let isRecording = false;
+        let chunks = 0;
+        let startTime;
+        let durationInterval;
+        let audioChunks = [];
+        let recordingDuration = 0;
+        let finalTranscription = '';
+
+        const recordBtn = document.getElementById('recordBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const transcriptionBox = document.querySelector('.transcription-box');
+        const transcriptionText = document.getElementById('transcription');
+        const statusText = document.getElementById('status');
+        const errorDiv = document.getElementById('error');
+        const durationText = document.getElementById('duration');
+        const chunksText = document.getElementById('chunks');
+
+        // Initialize WebSocket connection
+        function initWebSocket() {
+            try {
+                // Dynamically construct WebSocket URL based on current page location
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    statusText.textContent = '✅ Connected';
+                    statusText.className = 'status-text connected';
+                    hideError();
+                };
+
+                let currentPartial = ''; // Store current partial text
+
+                const renderTranscription = () => {
+                    let html = `<span class="final-text">${finalTranscription.trim()}</span>`;
+                    if (currentPartial) {
+                        html += ` <span class="partial-text">${currentPartial}<span class="loading-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></span>`;
+                    }
+                    transcriptionText.innerHTML = html;
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        console.log('Received message:', event.data.substring(0, 100));
+                        const response = JSON.parse(event.data);
+                        console.log('Parsed response:', response);
+
+                        // The response structure is { is_partial, data: { text, segments, ... }, time }
+                        const text = response.data?.text || response.text;
+                        const isPartial = response.is_partial;
+
+                        if (text) {
+                            if (!isPartial) {
+                                // Final result: accumulate and clear partial
+                                console.log('Final result:', text);
+                                finalTranscription += text;
+                                currentPartial = '';
+                            } else {
+                                // Partial result: update preview
+                                console.log('Partial result:', text);
+                                currentPartial = text;
+                            }
+                            transcriptionBox.classList.remove('empty');
+                            renderTranscription();
+                            updateSaveNotionButton();
+                        } else {
+                            console.warn('Message has no text field:', response);
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse message:', e);
+                        console.error('Raw message:', event.data);
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    showError('WebSocket error: ' + error);
+                    statusText.textContent = '❌ Error';
+                    statusText.className = 'status-text disconnected';
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket closed');
+                    statusText.innerHTML = '<span class="pulsing-dot"></span>Disconnected';
+                    statusText.className = 'status-text disconnected';
+                    if (isRecording) {
+                        stopRecording();
+                    }
+                };
+            } catch (e) {
+                console.error('Failed to connect:', e);
+                showError('Failed to connect: ' + e.message);
+            }
+        }
+
+        // Start recording
+        async function startRecording() {
+            if (ws.readyState !== WebSocket.OPEN) {
+                showError('WebSocket not connected. Please refresh and try again.');
+                return;
+            }
+
+            try {
+                console.log('Starting recording...');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        sampleRate: 16000
+                    }
+                });
+
+                console.log('Got audio stream:', stream);
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log('Created audio context with sample rate:', audioContext.sampleRate);
+
+                microphone = audioContext.createMediaStreamSource(stream);
+
+                // Use a larger buffer for better compatibility
+                processor = audioContext.createScriptProcessor(16384, 1, 1);
+                console.log('Created processor');
+
+                microphone.connect(processor);
+                processor.connect(audioContext.destination);
+
+                audioChunks = [];
+                chunks = 0;
+                isRecording = true;
+                startTime = Date.now();
+                transcriptionBox.classList.remove('empty');
+                transcriptionText.textContent = 'Recording... Waiting for transcription...';
+
+                recordBtn.disabled = true;
+                stopBtn.disabled = false;
+                chunksText.textContent = '0';
+
+                // Update duration
+                durationInterval = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    durationText.textContent = elapsed + 's';
+                }, 100);
+
+                // Function to resample audio from 48kHz to 16kHz
+                function resampleAudio(audioData, inputSampleRate, outputSampleRate) {
+                    if (inputSampleRate === outputSampleRate) return audioData;
+
+                    const ratio = inputSampleRate / outputSampleRate;
+                    const newLength = Math.round(audioData.length / ratio);
+                    const resampled = new Float32Array(newLength);
+
+                    for (let i = 0; i < newLength; i++) {
+                        const pos = i * ratio;
+                        const left = Math.floor(pos);
+                        const right = Math.ceil(pos);
+                        const frac = pos - left;
+
+                        if (right < audioData.length) {
+                            resampled[i] = audioData[left] * (1 - frac) + audioData[right] * frac;
+                        } else {
+                            resampled[i] = audioData[left];
+                        }
+                    }
+
+                    return resampled;
+                }
+
+                // Process audio data
+                processor.onaudioprocess = (event) => {
+                    if (!isRecording) return;
+
+                    // Get audio data from inputBuffer (correct API)
+                    const audioData = event.inputBuffer.getChannelData(0);
+                    const inputSampleRate = audioContext.sampleRate;
+
+                    // Resample from 48000 Hz to 16000 Hz
+                    const resampledData = resampleAudio(audioData, inputSampleRate, 16000);
+                    console.log('Processing audio chunk: original', audioData.length, 'samples @', inputSampleRate, 'Hz -> resampled', resampledData.length, 'samples @ 16000 Hz');
+
+                    // Convert float32 to int16
+                    const int16Data = new Int16Array(resampledData.length);
+                    for (let i = 0; i < resampledData.length; i++) {
+                        int16Data[i] = Math.max(-1, Math.min(1, resampledData[i])) * 0x7fff;
+                    }
+
+                    // Send chunk to WebSocket
+                    if (ws.readyState === WebSocket.OPEN) {
+                        try {
+                            ws.send(int16Data.buffer);
+                            chunks++;
+                            chunksText.textContent = chunks;
+                            console.log('Sent chunk #' + chunks + ' (' + int16Data.buffer.byteLength + ' bytes)');
+                        } catch (e) {
+                            console.error('Error sending chunk:', e);
+                            showError('Error sending audio: ' + e.message);
+                        }
+                    } else {
+                        console.warn('WebSocket not open, state:', ws.readyState);
+                    }
+                };
+
+                statusText.textContent = '🎤 Recording...';
+                statusText.className = 'status-text recording';
+                console.log('Recording started successfully');
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                showError('Microphone access denied: ' + error.message);
+                recordBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+        }
+
+        // Stop recording
+        function stopRecording() {
+            if (!isRecording) return;
+
+            isRecording = false;
+            recordBtn.disabled = false;
+            stopBtn.disabled = true;
+
+            if (processor) {
+                processor.disconnect();
+                microphone.disconnect();
+            }
+
+            if (durationInterval) {
+                clearInterval(durationInterval);
+            }
+
+            // Store the recording duration
+            recordingDuration = Math.floor((Date.now() - startTime) / 1000);
+
+            statusText.textContent = '✅ Connected';
+            statusText.className = 'status-text connected';
+
+            // Update save button visibility
+            updateSaveNotionButton();
+        }
+
+        // Clear transcription
+        function clearTranscription() {
+            transcriptionText.textContent = 'Start recording to see live transcription...';
+            transcriptionBox.classList.add('empty');
+            durationText.textContent = '0s';
+            chunksText.textContent = '0';
+            chunks = 0;
+            finalTranscription = '';
+            updateSaveNotionButton();
+        }
+
+        // Show error message
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        // Hide error message
+        function hideError() {
+            errorDiv.classList.remove('show');
+        }
+
+        // Settings Modal Functions
+        function openSettings() {
+            const modal = document.getElementById('settingsModal');
+            const apiKeyInput = document.getElementById('notionApiKey');
+            const databaseIdInput = document.getElementById('notionDatabaseId');
+
+            // Load saved settings
+            const saved = JSON.parse(localStorage.getItem('notionSettings') || '{}');
+            apiKeyInput.value = saved.apiKey || '';
+            databaseIdInput.value = saved.databaseId || '';
+
+            modal.classList.add('show');
+        }
+
+        function closeSettings() {
+            const modal = document.getElementById('settingsModal');
+            modal.classList.remove('show');
+        }
+
+        function closeSettingsOnBackdrop(event) {
+            if (event.target.id === 'settingsModal') {
+                closeSettings();
+            }
+        }
+
+        function saveSettings() {
+            const apiKey = document.getElementById('notionApiKey').value.trim();
+            const databaseId = document.getElementById('notionDatabaseId').value.trim();
+
+            if (!apiKey || !databaseId) {
+                showToast('Please fill in all fields', 'error');
+                return;
+            }
+
+            // Save to localStorage
+            localStorage.setItem('notionSettings', JSON.stringify({
+                apiKey: apiKey,
+                databaseId: databaseId
+            }));
+
+            showToast('✅ Settings saved successfully', 'success');
+            closeSettings();
+        }
+
+        // Notion Integration Functions
+        function updateSaveNotionButton() {
+            const saveBtn = document.getElementById('saveNotionBtn');
+            const settings = JSON.parse(localStorage.getItem('notionSettings') || '{}');
+
+            // Show button only if: not recording, has transcription, and has settings
+            if (!isRecording && finalTranscription.trim() && settings.apiKey && settings.databaseId) {
+                saveBtn.style.display = 'block';
+            } else {
+                saveBtn.style.display = 'none';
+            }
+        }
+
+        async function saveToNotion() {
+            const settings = JSON.parse(localStorage.getItem('notionSettings') || '{}');
+
+            if (!settings.apiKey || !settings.databaseId) {
+                showToast('❌ Notion settings not configured. Please set them in Settings.', 'error');
+                return;
+            }
+
+            if (!finalTranscription.trim()) {
+                showToast('❌ No transcription to save', 'error');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveNotionBtn');
+            saveBtn.disabled = true;
+            showToast('💾 Saving to Notion...', 'loading');
+
+            try {
+                const formData = new FormData();
+                formData.append('api_key', settings.apiKey);
+                formData.append('database_id', settings.databaseId);
+                formData.append('transcription_text', finalTranscription);
+                formData.append('duration_seconds', recordingDuration);
+                formData.append('model', 'small');
+
+                const response = await fetch('http://localhost:8181/save-to-notion', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    showToast(`✅ Saved to Notion! (${result.page_id.substring(0, 8)}...)`, 'success');
+                    saveBtn.disabled = false;
+                } else {
+                    showToast(`❌ Failed: ${result.message}`, 'error');
+                    saveBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error saving to Notion:', error);
+                showToast(`❌ Error: ${error.message}`, 'error');
+                saveBtn.disabled = false;
+            }
+        }
+
+        // Toast Notification Function
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            // Auto-remove after 4 seconds
+            setTimeout(() => {
+                toast.style.animation = 'slideInRight 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            // Update server URL display
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+            document.getElementById('serverUrl').innerHTML = `Connected to: <code>${wsUrl}</code>`;
+
+            initWebSocket();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (isRecording) {
+                stopRecording();
+            }
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>
