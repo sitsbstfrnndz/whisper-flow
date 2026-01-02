@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whisper Flow - Simple Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .dashboard {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #dc3545;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #28a745;
+        }
+
+        .status-dot.recording {
+            background: #ffc107;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .status-text {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-start {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-start:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-stop {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-clear {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-clear:hover:not(:disabled) {
+            background: #5a6268;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.3);
+        }
+
+        .transcription-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .transcription-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .transcription-item.partial {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
+
+        .transcription-item.final {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+
+        .transcription-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .transcription-text {
+            color: #333;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #666;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 60px 20px;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        /* Scrollbar styling */
+        .transcription-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .transcription-container::-webkit-scrollbar-track {
+            background: #e9ecef;
+            border-radius: 10px;
+        }
+
+        .transcription-container::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+
+        .transcription-container::-webkit-scrollbar-thumb:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>🎤 Whisper Flow</h1>
+            <p>Real-time Speech Transcription Dashboard</p>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span class="status-text" id="statusText">Disconnected</span>
+            </div>
+            <div class="status-indicator">
+                <span class="status-text" id="latencyText">Latency: --</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-start" id="startBtn" onclick="startRecording()">
+                ▶️ Start Recording
+            </button>
+            <button class="btn btn-stop" id="stopBtn" onclick="stopRecording()" disabled>
+                ⏹️ Stop Recording
+            </button>
+            <button class="btn btn-clear" id="clearBtn" onclick="clearTranscription()">
+                🗑️ Clear
+            </button>
+        </div>
+
+        <div class="transcription-container" id="transcriptionContainer">
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+                <p>Click "Start Recording" to begin transcription</p>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="wordCount">0</div>
+                <div class="stat-label">Words</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="segmentCount">0</div>
+                <div class="stat-label">Segments</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avgLatency">0ms</div>
+                <div class="stat-label">Avg Latency</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="duration">0s</div>
+                <div class="stat-label">Duration</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let websocket = null;
+        let mediaStream = null;
+        let audioContext = null;
+        let processor = null;
+        let isRecording = false;
+        let transcriptions = [];
+        let latencies = [];
+        let startTime = null;
+        let lastMessageTime = null;
+
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const latencyText = document.getElementById('latencyText');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const transcriptionContainer = document.getElementById('transcriptionContainer');
+        const wordCount = document.getElementById('wordCount');
+        const segmentCount = document.getElementById('segmentCount');
+        const avgLatency = document.getElementById('avgLatency');
+        const duration = document.getElementById('duration');
+
+        function updateStatus(status, message) {
+            statusDot.className = 'status-dot ' + status;
+            statusText.textContent = message;
+        }
+
+        async function startRecording() {
+            try {
+                // Connect to WebSocket
+                const wsUrl = 'ws://' + window.location.hostname + ':8181/ws';
+                websocket = new WebSocket(wsUrl);
+
+                websocket.onopen = async () => {
+                    updateStatus('connected', 'Connected');
+                    
+                    // Get microphone access
+                    mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            channelCount: 1,
+                            sampleRate: 16000,
+                            echoCancellation: true,
+                            noiseSuppression: true
+                        } 
+                    });
+
+                    // Create audio context
+                    audioContext = new AudioContext({ sampleRate: 16000 });
+                    const source = audioContext.createMediaStreamSource(mediaStream);
+                    
+                    // Create script processor
+                    processor = audioContext.createScriptProcessor(1024, 1, 1);
+                    
+                    processor.onaudioprocess = (e) => {
+                        if (!isRecording) return;
+                        
+                        const inputData = e.inputBuffer.getChannelData(0);
+                        const pcm16 = convertFloat32ToInt16(inputData);
+                        
+                        if (websocket && websocket.readyState === WebSocket.OPEN) {
+                            websocket.send(pcm16.buffer);
+                        }
+                    };
+
+                    source.connect(processor);
+                    processor.connect(audioContext.destination);
+
+                    isRecording = true;
+                    startTime = Date.now();
+                    lastMessageTime = Date.now();
+                    updateStatus('recording', 'Recording...');
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+
+                    // Update duration
+                    setInterval(() => {
+                        if (isRecording && startTime) {
+                            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                            duration.textContent = elapsed + 's';
+                        }
+                    }, 1000);
+                };
+
+                websocket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    const currentTime = Date.now();
+                    const latency = currentTime - lastMessageTime;
+                    lastMessageTime = currentTime;
+                    
+                    latencies.push(latency);
+                    latencyText.textContent = `Latency: ${latency}ms`;
+                    
+                    addTranscription(data);
+                    updateStats();
+                };
+
+                websocket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    updateStatus('', 'Error');
+                    stopRecording();
+                };
+
+                websocket.onclose = () => {
+                    updateStatus('', 'Disconnected');
+                    if (isRecording) {
+                        stopRecording();
+                    }
+                };
+
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                alert('Error: ' + error.message + '\n\nMake sure the Whisper Flow server is running on port 8181.');
+                updateStatus('', 'Error');
+            }
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            
+            if (processor) {
+                processor.disconnect();
+                processor = null;
+            }
+            
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+
+            updateStatus('', 'Stopped');
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        }
+
+        function convertFloat32ToInt16(float32Array) {
+            const int16Array = new Int16Array(float32Array.length);
+            for (let i = 0; i < float32Array.length; i++) {
+                const s = Math.max(-1, Math.min(1, float32Array[i]));
+                int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            return int16Array;
+        }
+
+        function addTranscription(data) {
+            const isPartial = data.is_partial;
+            const text = data.data.text;
+            const time = data.time;
+
+            // Remove empty state if present
+            const emptyState = transcriptionContainer.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            // If partial, update the last partial item or create new one
+            if (isPartial) {
+                const lastItem = transcriptionContainer.lastElementChild;
+                if (lastItem && lastItem.classList.contains('partial')) {
+                    lastItem.querySelector('.transcription-text').textContent = text;
+                    lastItem.querySelector('.transcription-meta').innerHTML = 
+                        `<span>⏱️ ${time.toFixed(2)}s</span><span>📝 Partial</span>`;
+                } else {
+                    createTranscriptionItem(text, time, isPartial);
+                }
+            } else {
+                // Final transcription - update last partial or create new
+                const lastItem = transcriptionContainer.lastElementChild;
+                if (lastItem && lastItem.classList.contains('partial')) {
+                    lastItem.classList.remove('partial');
+                    lastItem.classList.add('final');
+                    lastItem.querySelector('.transcription-text').textContent = text;
+                    lastItem.querySelector('.transcription-meta').innerHTML = 
+                        `<span>⏱️ ${time.toFixed(2)}s</span><span>✅ Final</span>`;
+                } else {
+                    createTranscriptionItem(text, time, isPartial);
+                }
+                transcriptions.push(text);
+            }
+
+            // Auto-scroll to bottom
+            transcriptionContainer.scrollTop = transcriptionContainer.scrollHeight;
+        }
+
+        function createTranscriptionItem(text, time, isPartial) {
+            const item = document.createElement('div');
+            item.className = 'transcription-item ' + (isPartial ? 'partial' : 'final');
+            
+            const meta = document.createElement('div');
+            meta.className = 'transcription-meta';
+            meta.innerHTML = `<span>⏱️ ${time.toFixed(2)}s</span><span>${isPartial ? '📝 Partial' : '✅ Final'}</span>`;
+            
+            const textDiv = document.createElement('div');
+            textDiv.className = 'transcription-text';
+            textDiv.textContent = text;
+            
+            item.appendChild(meta);
+            item.appendChild(textDiv);
+            transcriptionContainer.appendChild(item);
+        }
+
+        function updateStats() {
+            // Word count
+            const totalWords = transcriptions.reduce((sum, text) => {
+                return sum + text.split(/\s+/).filter(w => w.length > 0).length;
+            }, 0);
+            wordCount.textContent = totalWords;
+
+            // Segment count
+            segmentCount.textContent = transcriptions.length;
+
+            // Average latency
+            if (latencies.length > 0) {
+                const avg = latencies.reduce((a, b) => a + b, 0) / latencies.length;
+                avgLatency.textContent = Math.round(avg) + 'ms';
+            }
+        }
+
+        function clearTranscription() {
+            transcriptionContainer.innerHTML = `
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                    </svg>
+                    <p>Click "Start Recording" to begin transcription</p>
+                </div>
+            `;
+            transcriptions = [];
+            latencies = [];
+            wordCount.textContent = '0';
+            segmentCount.textContent = '0';
+            avgLatency.textContent = '0ms';
+            duration.textContent = '0s';
+        }
+    </script>
+</body>
+</html>
